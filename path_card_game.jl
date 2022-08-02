@@ -1,12 +1,33 @@
 using Random;
 
+function calculateScore(board::Vector{String})
+        score::Int64 = 0
+        for i in eachindex(board)
+                if board[i] == ""
+                        if i ÷ 10 == 1
+                                score += 15
+                        else
+                                score += (i % 10) + 1
+                        end
+                end
+        end
+        return score
+end
 
 
-function chooseMove(board::Vector{String}, moves::Vector{Bool}, hands::Vector{Vector{String}}, w::Int8)
+function placeCard(board::Vector{String}, hands::Vector{Vector{String}}, w::Int8, move::Int8)
+        board[cardIndex(hands[w][move])] = hands[w][move]
+        deleteat!(hands[w], move)
+        return board
+end
+
+function chooseMove(move_positions::Vector{Int8})
         # Random
-        println(moves)
-        r = rand(eachindex(moves))
-        return board, hands
+        move::Int8 = 0
+        if length(move_positions) > 0
+                move = move_positions[rand(eachindex(move_positions))]
+        end
+        return move
 end
 
 function possibleBoardMoves(move_option_board::Vector{Bool},
@@ -15,7 +36,6 @@ function possibleBoardMoves(move_option_board::Vector{Bool},
                             calls::Int64)
         if calls == 0
                 positions = [start_number + 10 * (i-1) for i in 1:(trunc(Int64,length(move_option_board)/10))]
-        
                 for i in positions
                         move_option_board[i] = true
                 end
@@ -23,22 +43,23 @@ function possibleBoardMoves(move_option_board::Vector{Bool},
                 return move_option_board
         else
                 positions = [start_number + 10 * (i-1) for i in 1:(trunc(Int64,length(move_option_board)/10))]
+                
                 move_option_board = [false for i in 1:length(board)]
                 for i in positions
                         move_option_board[i] = true
                 end
 
-                for i in eachindex(move_option_board)
+                for i in eachindex(board)
                         if (i % 10) == 1
-                                if move_option_board[i + 1] == true
+                                if board[i + 1] != ""
                                         move_option_board[i] = true
                                 end
                         elseif (i % 10) != 0
-                                if move_option_board[i + 1] == true  || move_option_board[i - 1] == true
+                                if board[i + 1] != ""  || board[i - 1] != ""
                                         move_option_board[i] = true
                                 end
                         elseif (i % 10) == 0
-                                if move_option_board[i - 1] == true
+                                if board[i - 1] != ""
                                         move_option_board[i] = true
                                 end
                         end
@@ -52,20 +73,33 @@ end
 function findPossibleMoves(move_option_board::Vector{Bool},
                            hands::Vector{Vector{String}},
                            w::Int8)
-        move_options::Vector{Int8} = [0 for i in hands[w]];
-        println(move_option_board)
-        println(hands[w])
+        """
+        Finds and returns the possible moves a player can make
+        in:
+                All the possible moves on the board
+                the hands of all the players
+                the current player
+        out:
+                the positions of all the moves the player can take
+        """
+        move_options::Vector{Int8} = [];
         for i::Int8 in eachindex(hands[w])
                 if move_option_board[cardIndex(hands[w][i])]
                         append!(move_options, i)
                 end
         end
-        println(move_options)
         return move_options
 end
 
 
 function createBoard(playercount::Int8)
+        """
+        Creates a board by the numbers of players
+        in:
+                the playercount
+        out:
+                a board with 10 times as many cards as there are players
+        """
         str::String = "";
         board::Vector{String} = [str for i in 1:playercount*10]
         return board
@@ -84,20 +118,23 @@ function playGame(card_set::Vector{String},
                 
                 move_option_board = possibleBoardMoves(move_option_board, board, start_number, calls)
                 calls += 1
-                moves = findPossibleMoves(move_option_board, hands, w)
-                board, hands = chooseMove(board, moves, hands, w)
+                move_positions = findPossibleMoves(move_option_board, hands, w)
+                move = chooseMove(move_positions)
+                if move > 0 
+                        board = placeCard(board, hands, w, move)
+                end
 
                 if all(x -> length(x) > 1, hands)
                         w = (w % playercount) + ONE
                         
                 end
-                if calls == 5
-                        break
-                end
         end
-        a = rand((1:playercount))
-        b = rand((1:100))
-        return a, b
+        
+        score = calculateScore(board)
+        # println(w)
+        # println(board)
+        # println(score)
+        return w, score
 end
 
 
@@ -154,19 +191,28 @@ end
 
 
 function main()
+        begin_time::Float64 = time()
+
 	playercount::Int8 = 4;
         scores::Vector{Int64} = [0::Int64 for i in 1:playercount]
         win_score::Int64 = 250;
         w::Int8 = rand(1:playercount);
-
-        while scores[w] < win_score
-                card_set::Vector{String} = createCards(playercount);
-                hands = shuffleAndDivide(card_set, playercount)
-                w, points = playGame(card_set, hands, playercount, w)
-                scores[w] = scores[w] + points
+        card_set::Vector{String} = [];
+        games::Int64 = 1_500_000
+        for i in 1:games
+                scores = [0::Int64 for i in 1:playercount]
+                win_score = 250;
+                w = rand(1:playercount);
+                while scores[w] < win_score
+                        card_set = createCards(playercount);
+                        hands = shuffleAndDivide(card_set, playercount)
+                        w, points = playGame(card_set, hands, playercount, w)
+                        scores[w] = scores[w] + points
+                end
+                # println(scores)
         end
-        println(scores)
-
+        end_time::Float64 = time()
+        println("Games played:\t\t$games\nPlayercount:\t\t$playercount\nScore to win:\t\t$win_score points\nCompleted in:\t\t", end_time - begin_time, " seconds")
 end
 
 
