@@ -1,6 +1,14 @@
 using Random;
 
 
+
+function chooseMove(board::Vector{String}, moves::Vector{Bool}, hands::Vector{Vector{String}}, w::Int8)
+        # Random
+        println(moves)
+        r = rand(eachindex(moves))
+        return board, hands
+end
+
 function possibleBoardMoves(move_option_board::Vector{Bool},
                             board::Vector{String},
                             start_number::Int8,
@@ -19,8 +27,8 @@ function possibleBoardMoves(move_option_board::Vector{Bool},
                 for i in positions
                         move_option_board[i] = true
                 end
-                println(move_option_board)
-                for i in 1:length(move_option_board)
+
+                for i in eachindex(move_option_board)
                         if (i % 10) == 1
                                 if move_option_board[i + 1] == true
                                         move_option_board[i] = true
@@ -35,17 +43,25 @@ function possibleBoardMoves(move_option_board::Vector{Bool},
                                 end
                         end
                 end
+                
                 return move_option_board
         end
 
 end
 
-function findPossibleMoves(board::Vector{String},
+function findPossibleMoves(move_option_board::Vector{Bool},
                            hands::Vector{Vector{String}},
-                           w::Int8,
-                           start_number::Int8)
-
-
+                           w::Int8)
+        move_options::Vector{Int8} = [0 for i in hands[w]];
+        println(move_option_board)
+        println(hands[w])
+        for i::Int8 in eachindex(hands[w])
+                if move_option_board[cardIndex(hands[w][i])]
+                        append!(move_options, i)
+                end
+        end
+        println(move_options)
+        return move_options
 end
 
 
@@ -59,19 +75,20 @@ function playGame(card_set::Vector{String},
          hands::Vector{Vector{String}},
          playercount::Int8,
          w::Int8)
+        ONE::Int8 = 1
         board::Vector{String} = createBoard(playercount)
         start_number::Int8 = rand(1:10)
         move_option_board::Vector{Bool} = [false for i in 1:(playercount*10)]
         calls::Int64 = 0
         while all(x -> length(x) > 1, hands)
-
-                possibleBoardMoves(move_option_board, board, start_number, calls)
+                
+                move_option_board = possibleBoardMoves(move_option_board, board, start_number, calls)
                 calls += 1
-                # moves = findPossibleMoves(board, hands, w, start_number)
-
+                moves = findPossibleMoves(move_option_board, hands, w)
+                board, hands = chooseMove(board, moves, hands, w)
 
                 if all(x -> length(x) > 1, hands)
-                        w = (w % playercount) + 1
+                        w = (w % playercount) + ONE
                         
                 end
                 if calls == 5
@@ -85,7 +102,7 @@ end
 
 
 function cardIndex(x::String)
-        a = codepoint(x[1]) * 10
+        a = (codepoint(x[1]) - 65) * 10
         b = parse(Int64, x[2:end])
         return (a + b)
 end
@@ -134,22 +151,6 @@ function createCards(players::Int8)
 end
 
 
-
-function allUnder(scores::Vector{Int64}, win_score::Int64)
-        """
-        Checks whether all scores are under a certain value
-        returns true when statement is true and false when it is not
-        in:
-
-
-        """
-        for i in scores
-                if i > win_score
-                        return false
-                end
-        end
-        return true
-end
 
 
 function main()
