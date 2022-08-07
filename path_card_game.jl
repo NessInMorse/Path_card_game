@@ -15,17 +15,156 @@ function calculateScore(board::Vector{String})
 end
 
 
+
 function placeCard(board::Vector{String}, hands::Vector{Vector{String}}, w::Int8, move::Int8)
         board[cardIndex(hands[w][move])] = hands[w][move]
         deleteat!(hands[w], move)
         return board
 end
 
-function chooseMove(move_positions::Vector{Int8})
+function calculateSmartMove(p::Vector{Int64},
+                            move_positions::Vector{Int8},
+                            hand::Vector{String},
+                            board::Vector{String},
+                            start_number::Int8)
+        """
+        A function that calculates the optimal move using the formula,
+                where the card with the highest Score (S) is chosen to be played:
+
+                s = k + N + d + (B - b)
+                
+                s = score of the card (the higher the better to play the card)
+                k = the count of the cards with the same prefix in the hand
+                C = the amount of cards with the same prefix not yet played
+                d = distance to the starting number
+                B = the (resting) cards 'behind' the card that can be played
+                b = the (resting) cards 'behind' the card that can be played that the player owns
+
+                there are 4 variables within the phenotype vector which affect the strongness
+                        of each of these signals within the formula, with P being the phenotype vector:
+
+                        s = (p1 * k) + (p2 * N) + (p3 * (10 - d)) + (p4 * (B - b))
+        in:
+                p, a list of all the different variances for the formula (=phenotype).
+                move_positions, a list of all the positions of the cards the player can play.
+                hand, a list with a string of all the cards in the hand.
+                board, a list of all the cards that are played on the board,
+                        and empty space for cards not yet placed.
+                start_number, the starting number of the game.
+        out:
+                move, the index of the move to play
+        """
+        scores::Vector{Int64} = [0 for i in move_positions]
+        prefix::Char = 0
+        s::Int64 = 0
+        k::Int64 = 0
+        N::Int64 = 0
+        charpoint::Int64 = 0
+        num::Int64 = 0
+        begin_index::Int64 = 0
+        d::Int64 = 0
+        B::Int64 = 0
+        b::Int64 = 0
+
+        card_pref::Char = 0
+
+        for i in eachindex(move_positions)
+                prefix = hand[move_positions[i]][1]
+                k = 0
+                for j in eachindex(hand)
+                        if hand[j][1] == prefix
+                                k = k + 1
+                        end
+                end
+
+
+                N = 0
+                x = hand[move_positions[i]]
+                begin_index = ((codepoint(x[1]) - 65) * 10) + 1
+
+                for j in begin_index:(begin_index + 9)
+                        if board[j] == ""
+                                N = N + 1
+                        end
+                end
+
+                d = abs(start_number - num)
+
+                B = 0
+                if start_number == num
+                        B = 9
+                elseif start_number < num
+                        B = 10 - num
+                else
+                        B = num - 1
+                end
+
+
+
+                iter = move_positions[i]
+                b = 0
+                if d == 0
+                        b = k - 1
+                elseif (start_number - num) > 0
+                        while iter < length(hand) && prefix == card_pref
+                                card_pref = hand[iter][1]
+                                if prefix == card_pref
+                                        b = b + 1
+                                end
+                                iter = iter + 1
+                        end
+                else # < 0
+                        while iter > 1 && prefix == card_pref
+                                card_pref = hand[iter][1]
+                                if prefix == card_pref
+                                        b = b + 1
+                                end
+                                iter = iter + 1
+                        end
+                end
+                s = p[1] * k + p[2] * N + p[3] * d + p[4] * (B - b)
+                scores[i] = s
+        end
+        max::Int64 = scores[1]
+        ind::Int8 = 1
+        for i in eachindex(scores)
+                if scores[i] > max
+                        max = scores[i]
+                        ind = i
+                end
+        end
+        
+        return move_positions[ind]
+end
+
+
+function chooseMove(move_positions::Vector{Int8},
+                    playstyle::Vector{Any},
+                    hand::Vector{String},
+                    board::Vector{String},
+                    start_number::Int8)
+        """
+        Function that chooses a move based on the playstyle of the CPU.
+
+
+        out:
+                the index of the card that is played by the CPU.
+        """
+
         # Random
         move::Int8 = 0
-        if length(move_positions) > 0
-                move = move_positions[rand(eachindex(move_positions))]
+        if length(move_positions) > 0 
+                if length(move_positions) == 1
+                        move = move_positions[1]
+                elseif playstyle[1] == "Random"
+                        move = move_positions[rand(eachindex(move_positions))]
+                elseif playstyle[1] == "Smart"
+                        move = calculateSmartMove(playstyle[2],
+                                                  move_positions,
+                                                  hand,
+                                                  board,
+                                                  start_number)
+                end
         end
         return move
 end
@@ -108,7 +247,8 @@ end
 function playGame(card_set::Vector{String}, 
          hands::Vector{Vector{String}},
          playercount::Int8,
-         w::Int8)
+         w::Int8,
+         playstyles::Vector{Vector{Any}})
         ONE::Int8 = 1
         board::Vector{String} = createBoard(playercount)
         start_number::Int8 = rand(1:10)
@@ -119,7 +259,11 @@ function playGame(card_set::Vector{String},
                 move_option_board = possibleBoardMoves(move_option_board, board, start_number, calls)
                 calls += 1
                 move_positions = findPossibleMoves(move_option_board, hands, w)
-                move = chooseMove(move_positions)
+                move = chooseMove(move_positions,
+                                  playstyles[w], 
+                                  hands[w], 
+                                  board, 
+                                  start_number)
                 if move > 0 
                         board = placeCard(board, hands, w, move)
                 end
@@ -187,6 +331,20 @@ function createCards(players::Int8)
 	return all_cards
 end
 
+function createPlaystyles(playercount::Int8)
+        play_styles::Vector{Vector{Any}} = []
+        options = ["Random", "Smart"]
+        for i in 1:playercount
+                a = rand(options)
+                fill_list = []
+                push!(fill_list, a)
+                if a == "Smart"
+                        push!(fill_list, [rand((-999:999)) for i in 1:4])
+                end
+                push!(play_styles, fill_list)
+        end
+        return play_styles
+end
 
 
 
@@ -196,9 +354,11 @@ function main()
 	playercount::Int8 = 4;
         scores::Vector{Int64} = [0::Int64 for i in 1:playercount]
         win_score::Int64 = 250;
+        win_counts::Vector{Int64} = [0 for i in 1:playercount];
         w::Int8 = rand(1:playercount);
         card_set::Vector{String} = [];
-        games::Int64 = 1_500_000
+        playstyles = createPlaystyles(playercount)
+        games::Int64 = 50_000
         for i in 1:games
                 scores = [0::Int64 for i in 1:playercount]
                 win_score = 250;
@@ -206,13 +366,15 @@ function main()
                 while scores[w] < win_score
                         card_set = createCards(playercount);
                         hands = shuffleAndDivide(card_set, playercount)
-                        w, points = playGame(card_set, hands, playercount, w)
+                        w, points = playGame(card_set, hands, playercount, w, playstyles)
                         scores[w] = scores[w] + points
                 end
-                # println(scores)
+                win_counts[w] = win_counts[w] + 1
         end
         end_time::Float64 = time()
         println("Games played:\t\t$games\nPlayercount:\t\t$playercount\nScore to win:\t\t$win_score points\nCompleted in:\t\t", end_time - begin_time, " seconds")
+        println(playstyles)
+        println(win_counts)
 end
 
 
