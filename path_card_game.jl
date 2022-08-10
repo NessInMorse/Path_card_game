@@ -4,23 +4,20 @@ using Random;
 function evolveSpecies(win_indices::Vector{Int8}, playstyles::Vector{Vector{Any}}, mutation_chance::Float64)
         p1::Vector{Any} = ["Smart"]
         p2::Vector{Any} = ["Smart"]
-        
+
+
         a::Vector{Int8} = rand(0:1, 4)
         b::Vector{Int8} = [i == 0 for i in a]
         fill_p1 = [playstyles[1 + a[i]][2][i] for i in eachindex(a)]
         fill_p2 = [playstyles[1 + b[i]][2][i] for i in eachindex(b)]
-        # println(fill_p1)
-        # println(fill_p2)
-
         push!(p1, fill_p1)
-        # println(p1)
-        # println(p2)
         push!(p2, fill_p2)
         children = [p1, p2]
+
         if rand() < mutation_chance
                 mutation_individual = rand(1:2)
                 locus = rand((1:4))
-                alteration = rand(-999:999)
+                alteration = rand(-99:99)
                 children[mutation_individual][2][locus] = children[mutation_individual][2][locus] + alteration
                 if children[mutation_individual][2][locus] > 999
                         children[mutation_individual][2][locus] = 999
