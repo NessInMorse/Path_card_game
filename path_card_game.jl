@@ -5,12 +5,17 @@ function evolveSpecies(win_indices::Vector{Int8}, playstyles::Vector{Vector{Any}
         p1::Vector{Any} = ["Smart"]
         p2::Vector{Any} = ["Smart"]
         
-        push!(p1, playstyles[win_indices[1]][2][1:2])
-        append!(p1[2], playstyles[win_indices[2]][2][3:4])
-        
+        a::Vector{Int8} = rand(0:1, 4)
+        b::Vector{Int8} = [i == 0 for i in a]
+        fill_p1 = [playstyles[1 + a[i]][2][i] for i in eachindex(a)]
+        fill_p2 = [playstyles[1 + b[i]][2][i] for i in eachindex(b)]
+        # println(fill_p1)
+        # println(fill_p2)
 
-        push!(p2, playstyles[win_indices[2]][2][1:2])
-        append!(p2[2], playstyles[win_indices[1]][2][3:4])
+        push!(p1, fill_p1)
+        # println(p1)
+        # println(p2)
+        push!(p2, fill_p2)
         children = [p1, p2]
         if rand() < mutation_chance
                 mutation_individual = rand(1:2)
@@ -424,7 +429,7 @@ function main()
         infile = open("generation_history.tsv", "w")
         write(infile, "gen\twins\tk\tC\td\tB\n")
 
-        mutation_chance = 0.05
+        mutation_chance = 0.03
 	playercount::Int8 = 4;
         scores::Vector{Int64} = [0::Int64 for i in 1:playercount]
         win_score::Int64 = 250;
@@ -433,7 +438,7 @@ function main()
         card_set::Vector{String} = [];
         playstyles = createPlaystyles(playercount)
 
-        generations::Int64 = 5000
+        generations::Int64 = 1000
         games::Int64 = 500
         for i in 1:generations
                 # println(playstyles)
