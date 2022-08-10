@@ -1,5 +1,75 @@
 using Random;
 
+
+function evolveSpecies(win_indices::Vector{Int8}, playstyles::Vector{Vector{Any}}, mutation_chance::Float64)
+        p1::Vector{Any} = ["Smart"]
+        p2::Vector{Any} = ["Smart"]
+        
+        push!(p1, playstyles[win_indices[1]][2][1:2])
+        append!(p1[2], playstyles[win_indices[2]][2][3:4])
+        
+
+        push!(p2, playstyles[win_indices[2]][2][1:2])
+        append!(p2[2], playstyles[win_indices[1]][2][3:4])
+        children = [p1, p2]
+        if rand() < mutation_chance
+                mutation_individual = rand(1:2)
+                locus = rand((1:4))
+                alteration = rand(-999:999)
+                children[mutation_individual][2][locus] = children[mutation_individual][2][locus] + alteration
+                if children[mutation_individual][2][locus] > 999
+                        children[mutation_individual][2][locus] = 999
+                elseif children[mutation_individual][2][locus] < -999
+                        children[mutation_individual][2][locus] = -999
+                end
+        end
+
+        p3 = []
+        push!(p3, "Smart")
+        push!(p3, [rand((-999:999)) for i in 1:4])
+
+        new_population = [playstyles[win_indices[1]], p3]
+        append!(new_population, children)
+        return new_population
+end
+
+
+function writeHistory(infile, i::Int64, win_indices::Vector{Int8}, playstyles::Vector{Vector{Any}}, win_counts::Vector{Int64})
+        printstr::String = "$i" * '\t' * "$(win_counts[win_indices[1]])" * '\t' * join(playstyles[win_indices[1]][2], '\t') * '\n'
+        write(infile, printstr)
+end
+
+
+function findHighestPerformers(win_counts::Vector{Int64})
+        """
+        Finds the maximum and second highest number in the vector
+        in:
+                win_counts, a vector containing the number of wins of each of the players
+        out:
+                win_indices, a vector containing the positions of the best performers.
+        """
+        max_num = win_counts[1]
+        max_ind = 1
+        for i in eachindex(win_counts)
+                if win_counts[i] > max_num
+                        max_num = win_counts[i]
+                        max_ind = i
+                end
+        end
+
+        sec_max = 0
+        sec_max_ind = 0 
+        for i in eachindex(win_counts)
+                if win_counts[i] > sec_max && win_counts[i] < max_num
+                        max_num = win_counts[i]
+                        sec_max_ind = i
+                end
+        end
+        win_indices::Vector{Int8} = [max_ind, sec_max_ind]
+        return win_indices
+end
+
+
 function calculateScore(board::Vector{String})
         score::Int64 = 0
         for i in eachindex(board)
@@ -333,7 +403,7 @@ end
 
 function createPlaystyles(playercount::Int8)
         play_styles::Vector{Vector{Any}} = []
-        options = ["Random", "Smart"]
+        options = ["Smart"] # ["Random", "Smart"]
         for i in 1:playercount
                 a = rand(options)
                 fill_list = []
@@ -351,6 +421,10 @@ end
 function main()
         begin_time::Float64 = time()
 
+        infile = open("generation_history.tsv", "w")
+        write(infile, "gen\twins\tk\tC\td\tB\n")
+
+        mutation_chance = 0.05
 	playercount::Int8 = 4;
         scores::Vector{Int64} = [0::Int64 for i in 1:playercount]
         win_score::Int64 = 250;
@@ -358,21 +432,32 @@ function main()
         w::Int8 = rand(1:playercount);
         card_set::Vector{String} = [];
         playstyles = createPlaystyles(playercount)
-        games::Int64 = 50_000
-        for i in 1:games
-                scores = [0::Int64 for i in 1:playercount]
-                win_score = 250;
-                w = rand(1:playercount);
-                while scores[w] < win_score
-                        card_set = createCards(playercount);
-                        hands = shuffleAndDivide(card_set, playercount)
-                        w, points = playGame(card_set, hands, playercount, w, playstyles)
-                        scores[w] = scores[w] + points
+
+        generations::Int64 = 5000
+        games::Int64 = 500
+        for i in 1:generations
+                # println(playstyles)
+                win_counts = [0 for i in 1:playercount]
+                for j in 1:games
+                        scores = [0::Int64 for i in 1:playercount]
+                        win_score = 250;
+                        w = rand(1:playercount);
+                        while scores[w] < win_score
+                                card_set = createCards(playercount);
+                                hands = shuffleAndDivide(card_set, playercount)
+                                w, points = playGame(card_set, hands, playercount, w, playstyles)
+                                scores[w] = scores[w] + points
+                        end
+                        win_counts[w] = win_counts[w] + 1
                 end
-                win_counts[w] = win_counts[w] + 1
+                
+                win_indices = findHighestPerformers(win_counts)
+                writeHistory(infile, i, win_indices, playstyles, win_counts)
+                playstyles = evolveSpecies(win_indices, playstyles, mutation_chance)
         end
+        close(infile)
         end_time::Float64 = time()
-        println("Games played:\t\t$games\nPlayercount:\t\t$playercount\nScore to win:\t\t$win_score points\nCompleted in:\t\t", end_time - begin_time, " seconds")
+        println("Generations:\t\t$generations\nGames played:\t\t$games\nPlayercount:\t\t$playercount\nScore to win:\t\t$win_score points\nCompleted in:\t\t", end_time - begin_time, " seconds")
         println(playstyles)
         println(win_counts)
 end
