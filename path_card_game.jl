@@ -63,7 +63,7 @@ function findHighestPerformers(win_counts::Vector{Int64})
         sec_max_ind = 0 
         for i in eachindex(win_counts)
                 if win_counts[i] > sec_max && win_counts[i] < max_num
-                        max_num = win_counts[i]
+                        sec_max = win_counts[i]
                         sec_max_ind = i
                 end
         end
@@ -194,7 +194,7 @@ function calculateSmartMove(p::Vector{Int64},
                                 iter = iter + 1
                         end
                 end
-                s = p[1] * k + p[2] * N + p[3] * d + p[4] * (B - b)
+                s = p[1] * k + p[2] * N + p[3] * (10 - d)+ p[4] * (B - b)
                 scores[i] = s
         end
         max::Int64 = scores[1]
