@@ -62,7 +62,7 @@ function findHighestPerformers(win_counts::Vector{Int64})
         sec_max = 0
         sec_max_ind = 0 
         for i in eachindex(win_counts)
-                if win_counts[i] > sec_max && win_counts[i] < max_num
+                if win_counts[i] > sec_max && i != max_ind
                         sec_max = win_counts[i]
                         sec_max_ind = i
                 end
@@ -194,7 +194,7 @@ function calculateSmartMove(p::Vector{Int64},
                                 iter = iter + 1
                         end
                 end
-                s = p[1] * k + p[2] * N + p[3] * (10 - d)+ p[4] * (B - b)
+                s = p[1] * k + p[2] * N + p[3] * (10 - d) + p[4] * (B - b)
                 scores[i] = s
         end
         max::Int64 = scores[1]
@@ -428,40 +428,47 @@ function main()
 
         mutation_chance = 0.03
 	playercount::Int8 = 4;
-        scores::Vector{Int64} = [0::Int64 for i in 1:playercount]
+        scores::Vector{Int64} = [0::Int64 for i in 1:4]
         win_score::Int64 = 250;
-        win_counts::Vector{Int64} = [0 for i in 1:playercount];
+        win_counts::Vector{Vector{Int64}} = [[0 for i in 1:playercount] for _ in 1:4];
         w::Int8 = rand(1:playercount);
         card_set::Vector{String} = [];
         playstyles = createPlaystyles(playercount)
 
+        clusters::Vector{Vector{Vector{Any}}} = [[playstyles[i], ["Random"]] for i in 1:4]
+        smart_wincounts::Vector{Int64} = [0 for i in 1:4]
         generations::Int64 = 1000
         games::Int64 = 500
         for i in 1:generations
                 # println(playstyles)
-                win_counts = [0 for i in 1:playercount]
-                for j in 1:games
-                        scores = [0::Int64 for i in 1:playercount]
-                        win_score = 250;
-                        w = rand(1:playercount);
-                        while scores[w] < win_score
-                                card_set = createCards(playercount);
-                                hands = shuffleAndDivide(card_set, playercount)
-                                w, points = playGame(card_set, hands, playercount, w, playstyles)
-                                scores[w] = scores[w] + points
+                win_counts = [[0 for i in 1:playercount] for _ in 1:4]
+                for j in 1:length(clusters)
+                        for _ in 1:games
+                                scores = [0::Int64 for i in 1:playercount]
+                                win_score = 250;
+                                w = rand(1:playercount);
+                                while scores[w] < win_score
+                                        card_set = createCards(playercount);
+                                        hands = shuffleAndDivide(card_set, playercount)
+                                        w, points = playGame(card_set, hands, playercount, w, playstyles)
+                                        scores[w] = scores[w] + points
+                                end
+                                win_counts[j][w] = win_counts[j][w] + 1
                         end
-                        win_counts[w] = win_counts[w] + 1
                 end
-                
-                win_indices = findHighestPerformers(win_counts)
-                writeHistory(infile, i, win_indices, playstyles, win_counts)
+
+                smart_wincounts = [i[1] for i in win_counts]
+
+                win_indices = findHighestPerformers(smart_wincounts)
+                writeHistory(infile, i, win_indices, playstyles, smart_wincounts)
                 playstyles = evolveSpecies(win_indices, playstyles, mutation_chance)
+                clusters = [[playstyles[i], ["Random"]] for i in 1:4]
         end
         close(infile)
         end_time::Float64 = time()
         println("Generations:\t\t$generations\nGames played:\t\t$games\nPlayercount:\t\t$playercount\nScore to win:\t\t$win_score points\nCompleted in:\t\t", end_time - begin_time, " seconds")
         println(playstyles)
-        println(win_counts)
+        println(smart_wincounts)
 end
 
 
