@@ -66,10 +66,12 @@ function calculateScore(board::Vector{String})
         score::Int64 = 0
         for i in eachindex(board)
                 if board[i] == ""
-                        if i ÷ 10 == 1
+                        if (i % 10) == 1
                                 score += 15
+                        elseif (i % 10) == 0
+                                score += 10
                         else
-                                score += (i % 10) + 1
+                                score += (i % 10)
                         end
                 end
         end
@@ -316,7 +318,7 @@ function playGame(card_set::Vector{String},
         start_number::Int8 = rand(1:10)
         move_option_board::Vector{Bool} = [false for i in 1:(playercount*10)]
         calls::Int64 = 0
-        while all(x -> length(x) > 1, hands)
+        while all(x -> length(x) > 0, hands)
                 
                 move_option_board = possibleBoardMoves(move_option_board, board, start_number, calls)
                 calls += 1
@@ -330,16 +332,12 @@ function playGame(card_set::Vector{String},
                         board = placeCard(board, hands, w, move)
                 end
 
-                if all(x -> length(x) > 1, hands)
+                if all(x -> length(x) > 0, hands)
                         w = (w % playercount) + ONE
-                        
                 end
         end
-        
         score = calculateScore(board)
-        # println(w)
-        # println(board)
-        # println(score)
+
         return w, score
 end
 
@@ -431,12 +429,12 @@ function main()
         clusters::Vector{Vector{Vector{Any}}} = [[playstyles[i], ["Random"]] for i in 1:cluster_count]
         
         smart_wincounts::Vector{Int64} = [0 for i in 1:cluster_count]
-        generations::Int64 = 1000
+        generations::Int64 = 100
         games::Int64 = 500
         for i in 1:generations
                 # println(playstyles)
-                win_counts = [[0 for i in 1:playercount] for _ in 1:cluster_count]
-                for j in 1:length(clusters)
+                win_counts = [[0 for _ in 1:playercount] for _ in 1:cluster_count]
+                for j in eachindex(clusters)
                         for _ in 1:games
                                 scores = [0::Int64 for i in 1:playercount]
                                 win_score = 250;
@@ -444,7 +442,7 @@ function main()
                                 while scores[w] < win_score
                                         card_set = createCards(playercount);
                                         hands = shuffleAndDivide(card_set, playercount)
-                                        w, points = playGame(card_set, hands, playercount, w, playstyles)
+                                        w, points = playGame(card_set, hands, playercount, w, clusters[j])
                                         scores[w] = scores[w] + points
                                 end
                                 win_counts[j][w] = win_counts[j][w] + 1
@@ -455,9 +453,13 @@ function main()
 
                 win_indices = findHighestPerformers(smart_wincounts)
                 writeHistory(infile, i, win_indices, playstyles, smart_wincounts)
+                # println(playstyles)
                 playstyles = evolveSpecies(win_indices, playstyles, mutation_chance)
                 clusters = [[playstyles[i], ["Random"]] for i in 1:cluster_count]
-
+                if i % 1000 == 0 
+                        nieuwe_tijd = time()
+                        println("(Weer) duizend generaties gehad na ", nieuwe_tijd - begin_time)
+                end
         end
         close(infile)
         end_time::Float64 = time()
