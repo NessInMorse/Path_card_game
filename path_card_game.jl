@@ -2,35 +2,25 @@ using Random;
 
 
 function evolveSpecies(win_indices::Vector{Int8}, playstyles::Vector{Vector{Any}}, mutation_chance::Float64)
+        
         p1::Vector{Any} = ["Smart"]
         p2::Vector{Any} = ["Smart"]
+        p3::Vector{Any} = ["Smart"]
+        p4::Vector{Any} = ["Smart"]
 
-
-        a::Vector{Int8} = rand(0:1, 4)
-        b::Vector{Int8} = [i == 0 for i in a]
-        fill_p1 = [playstyles[1 + a[i]][2][i] for i in eachindex(a)]
-        fill_p2 = [playstyles[1 + b[i]][2][i] for i in eachindex(b)]
-        push!(p1, fill_p1)
-        push!(p2, fill_p2)
-        children = [p1, p2]
-
-        if rand() < mutation_chance
-                mutation_individual = rand(1:2)
-                locus = rand((1:4))
-                alteration = rand(-99:99)
-                children[mutation_individual][2][locus] = children[mutation_individual][2][locus] + alteration
-                if children[mutation_individual][2][locus] > 999
-                        children[mutation_individual][2][locus] = 999
-                elseif children[mutation_individual][2][locus] < -999
-                        children[mutation_individual][2][locus] = -999
+        children = [p1, p2, p3, p4]
+        for i in eachindex(playstyles[1][2])
+                fill = copy(playstyles[win_indices[1]][2])
+                fill[i] = fill[i] + rand(-50:50)
+                if fill[i] > 999
+                        fill[i] = 999
+                elseif fill[i] < -999
+                        fill[i] = -999
                 end
+                push!(children[i], fill)
         end
 
-        p3 = []
-        push!(p3, "Smart")
-        push!(p3, [rand((-999:999)) for i in 1:4])
-
-        new_population = [playstyles[win_indices[1]], p3]
+        new_population = [playstyles[win_indices[1]]]
         append!(new_population, children)
         return new_population
 end
@@ -427,21 +417,25 @@ function main()
         write(infile, "gen\twins\tk\tC\td\tB\n")
 
         mutation_chance = 0.03
-	playercount::Int8 = 4;
-        scores::Vector{Int64} = [0::Int64 for i in 1:4]
+	playercount::Int8 = 2;
+        scores::Vector{Int64} = [0::Int64 for i in 1:playercount]
         win_score::Int64 = 250;
-        win_counts::Vector{Vector{Int64}} = [[0 for i in 1:playercount] for _ in 1:4];
+        cluster_count::Int8 = 5
+
+
+        win_counts::Vector{Vector{Int64}} = [[0 for i in 1:playercount] for _ in 1:cluster_count];
         w::Int8 = rand(1:playercount);
         card_set::Vector{String} = [];
-        playstyles = createPlaystyles(playercount)
+        playstyles = createPlaystyles(cluster_count)
 
-        clusters::Vector{Vector{Vector{Any}}} = [[playstyles[i], ["Random"]] for i in 1:4]
-        smart_wincounts::Vector{Int64} = [0 for i in 1:4]
+        clusters::Vector{Vector{Vector{Any}}} = [[playstyles[i], ["Random"]] for i in 1:cluster_count]
+        
+        smart_wincounts::Vector{Int64} = [0 for i in 1:cluster_count]
         generations::Int64 = 1000
         games::Int64 = 500
         for i in 1:generations
                 # println(playstyles)
-                win_counts = [[0 for i in 1:playercount] for _ in 1:4]
+                win_counts = [[0 for i in 1:playercount] for _ in 1:cluster_count]
                 for j in 1:length(clusters)
                         for _ in 1:games
                                 scores = [0::Int64 for i in 1:playercount]
@@ -462,7 +456,8 @@ function main()
                 win_indices = findHighestPerformers(smart_wincounts)
                 writeHistory(infile, i, win_indices, playstyles, smart_wincounts)
                 playstyles = evolveSpecies(win_indices, playstyles, mutation_chance)
-                clusters = [[playstyles[i], ["Random"]] for i in 1:4]
+                clusters = [[playstyles[i], ["Random"]] for i in 1:cluster_count]
+
         end
         close(infile)
         end_time::Float64 = time()
